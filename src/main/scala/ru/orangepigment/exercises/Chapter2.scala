@@ -2,7 +2,7 @@ package ru.orangepigment.exercises
 
 import scala.annotation.tailrec
 
-object Chapther2 {
+object Chapter2 {
 
   def fib(n: Int): Int = {
     @tailrec
