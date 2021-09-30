@@ -1,0 +1,1 @@
+This project contains solutions for exercises from ["Functional programming in Scala"](https://www.manning.com/books/functional-programming-in-scala-second-edition) book.
