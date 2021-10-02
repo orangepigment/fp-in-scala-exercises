@@ -1,8 +1,8 @@
-package ru.orangepigment.exercises
+package ru.orangepigment.exercises.chapter2
 
 import scala.annotation.tailrec
 
-object Chapter2 {
+object Exercises {
 
   def fib(n: Int): Int = {
     @tailrec
@@ -40,6 +40,6 @@ object Chapter2 {
 
   def uncurry[A, B, C](f: A => B => C): (A, B) => C = (a, b) => f(a)(b)
 
-  def compose[A,B,C](f: B => C, g: A => B): A => C = a => f(g(a))
+  def compose[A, B, C](f: B => C, g: A => B): A => C = a => f(g(a))
 
 }
