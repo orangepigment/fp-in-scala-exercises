@@ -71,7 +71,7 @@ object RNG {
       (f(a, b), rng2)
     }
 
-  def both[A,B](ra: Rand[A], rb: Rand[B]): Rand[(A,B)] =
+  def both[A, B](ra: Rand[A], rb: Rand[B]): Rand[(A, B)] =
     map2(ra, rb)((_, _))
 
   val int: Rand[Int] = _.nextInt
@@ -87,13 +87,26 @@ object RNG {
     sequence(List.fill(count)(int))
   }
 
-  def nonNegativeLessThan(n: Int): Rand[Int] = { rng =>
-    val (i, rng2) = nonNegativeInt(rng)
-    val mod = i % n
-    if (i + (n-1) - mod >= 0)
-      (mod, rng2)
-    else nonNegativeLessThan(n)(rng)
+  def nonNegativeLessThan(n: Int): Rand[Int] =
+    flatMap(nonNegativeInt) { i =>
+      val mod = i % n
+      if (i + (n - 1) - mod >= 0) unit(mod) else nonNegativeLessThan(n)
+    }
+
+  def flatMap[A, B](f: Rand[A])(g: A => Rand[B]): Rand[B] = { rng =>
+    val (value, rng2) = f(rng)
+    g(value)(rng2)
   }
+
+  def mapViaFlatMap[A, B](s: Rand[A])(f: A => B): Rand[B] =
+    flatMap(s) { value =>
+      unit(f(value))
+    }
+
+  def map2ViaFlatMap[A, B, C](ra: Rand[A], rb: Rand[B])(f: (A, B) => C): Rand[C] =
+    flatMap(ra)(a => mapViaFlatMap(rb)(b => f(a, b)))
+
+  def rollDie: Rand[Int] = map(nonNegativeLessThan(6))(_ + 1)
 
 }
 
@@ -108,10 +121,4 @@ case class SimpleRNG(seed: Long) extends RNG {
     val n = (newSeed >>> 16).toInt
     (n, nextRNG)
   }
-}
-
-object Exercises {
-
-
-
 }
