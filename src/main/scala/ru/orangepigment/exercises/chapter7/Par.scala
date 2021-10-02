@@ -79,6 +79,29 @@ object Par {
 
   def delay[A](fa: => Par[A]): Par[A] = es => fa(es)
 
+  def choiceN[A](n: Par[Int])(choices: List[Par[A]]): Par[A] =
+    flatMap(n)(i => choices(i))
+
+  def choice[A](cond: Par[Boolean])(t: Par[A], f: Par[A]): Par[A] =
+    flatMap(cond) { b =>
+      if (b) t else f
+    }
+
+  def choiceMap[K, V](key: Par[K])(choices: Map[K, Par[V]]): Par[V] = { es =>
+    choices(run(es)(key).get)(es)
+  }
+
+  def flatMap[A, B](a: Par[A])(f: A => Par[B]): Par[B] = { es =>
+    f(run(es)(a).get)(es)
+  }
+
+  def join[A](a: Par[Par[A]]): Par[A] = { es => run(es)(a).get()(es) }
+
+  def joinViaFlatMap[A](a: Par[Par[A]]): Par[A] = flatMapViaJoin(a) { x => x }
+
+  def flatMapViaJoin[A, B](a: Par[A])(f: A => Par[B]): Par[B] = join(map(a)(f))
+
+
 }
 
 object Exercises {
