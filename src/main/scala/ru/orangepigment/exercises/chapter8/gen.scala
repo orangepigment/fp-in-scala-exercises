@@ -113,7 +113,6 @@ object Prop {
   type FailedCase = String
   type SuccessCount = Int
   type TestCases = Int
-  type Result = Option[(FailedCase, SuccessCount)]
   type MaxSize = Int
 }
 

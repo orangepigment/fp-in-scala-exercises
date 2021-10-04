@@ -65,7 +65,7 @@ object Par {
     map(sequence(pars))(_.flatten)
   }
 
-  def parProcess[A, B](as: IndexedSeq[A])(f: Option[A] => B)(g: (B, B) => B)(): Par[B] = {
+  def parProcess[A, B](as: IndexedSeq[A])(f: Option[A] => B)(g: (B, B) => B): Par[B] = {
     if (as.length <= 1)
       unit(f(as.headOption))
     else {
