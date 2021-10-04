@@ -19,13 +19,13 @@ object JSON {
 object Exercises {
 
   // parse a single digit, like '4', followed by that many 'a' characters
-  def contextSensitiveParser[Err, Parser[+_]](P: Parsers[Err, Parser]): Parser[String] = {
+  def contextSensitiveParser[Parser[+_]](P: Parsers[Parser]): Parser[String] = {
     import P._
     "\\d".r flatMap (d => "a".listOfN(d.toInt).slice)
   }
 
   // ToDo: extra combinators can be used/introduced
-  def jsonParser[Err, Parser[+_]](P: Parsers[Err, Parser]): Parser[JSON] = {
+  def jsonParser[Parser[+_]](P: Parsers[Parser]): Parser[JSON] = {
     import P._
     import JSON._
 
