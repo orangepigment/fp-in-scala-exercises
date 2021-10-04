@@ -17,11 +17,14 @@ object Gen {
     SGen(n => g.listOfN(n))
 
   def forAll[A](as: Gen[A])(f: A => Boolean): Prop = Prop {
-    (_, n, rng) => randomStream(as)(rng).zip(LazyList.from(0)).take(n).map {
-      case (a, i) => try {
-        if (f(a)) Passed else Falsified(a.toString, i)
-      } catch { case e: Exception => Falsified(buildMsg(a, e), i) }
-    }.find(_.isFalsified).getOrElse(Passed)
+    (_, n, rng) =>
+      randomStream(as)(rng).zip(LazyList.from(0)).take(n).map {
+        case (a, i) => try {
+          if (f(a)) Passed else Falsified(a.toString, i)
+        } catch {
+          case e: Exception => Falsified(buildMsg(a, e), i)
+        }
+      }.find(_.isFalsified).getOrElse(Passed)
   }
 
   def forAll[A](g: Int => Gen[A])(f: A => Boolean): Prop = Prop {
@@ -60,11 +63,19 @@ object Gen {
     Gen(State(RNG.double).flatMap(d => if (d < g1Threshold) g1._1.sample else g2._1.sample))
   }
 
+  def stringN(n: Int): Gen[String] =
+    listOfN(n, choose(0, 127)).map(_.map(_.toChar).mkString)
+
+  val string: SGen[String] = SGen(stringN)
+
 }
 
 case class Gen[+A](sample: State[RNG, A]) {
 
   def map[B](f: A => B): Gen[B] = Gen(sample.map(f))
+
+  def map2[B, C](g: Gen[B])(f: (A, B) => C): Gen[C] =
+    Gen(sample.map2(g.sample)(f))
 
   def flatMap[B](f: A => Gen[B]): Gen[B] = Gen(sample.flatMap(a => f(a).sample))
 
@@ -73,6 +84,9 @@ case class Gen[+A](sample: State[RNG, A]) {
   def listOfN(size: Gen[Int]): Gen[List[A]] = size.flatMap(n => listOfN(n))
 
   def unsized: SGen[A] = SGen(_ => this)
+
+  def **[B](g: Gen[B]): Gen[(A, B)] =
+    (this map2 g) ((_, _))
 
 }
 
@@ -93,6 +107,9 @@ case class SGen[+A](g: Int => Gen[A]) {
     }
     SGen(g2)
   }
+
+  def **[B](s2: SGen[B]): SGen[(A, B)] =
+    SGen(n => apply(n) ** s2(n))
 
 }
 
