@@ -1,11 +1,11 @@
 package ru.orangepigment.exercises.chapter9
 
-import ru.orangepigment.exercises.chapter8.{Gen, Prop}
+import ru.orangepigment.exercises.chapter8.{Gen, Prop, SGen}
 
 import scala.util.matching.Regex
 
 
-trait Parsers[ParseError, Parser[+_]] {
+trait Parsers[Parser[+_]] {
   self =>
 
   object Laws {
@@ -15,6 +15,14 @@ trait Parsers[ParseError, Parser[+_]] {
 
     def mapLaw[A](p: Parser[A])(in: Gen[String]): Prop =
       equal(p, p.map(a => a))(in)
+
+    def labelLaw[A](p: Parser[A], inputs: SGen[String]): Prop =
+      Gen.forAll(inputs ** Gen.string) { case (input, msg) =>
+        run(label(msg)(p))(input) match {
+          case Left(e) => errorMessage(e) == msg
+          case _ => true
+        }
+      }
   }
 
   case class ParserOps[A](p: Parser[A]) {
@@ -76,6 +84,10 @@ trait Parsers[ParseError, Parser[+_]] {
       map2(p, listOfN(n - 1, p))(_ :: _)
     }
 
+  def label[A](msg: String)(p: Parser[A]): Parser[A]
+
+  def scope[A](msg: String)(p: Parser[A]): Parser[A]
+
   implicit def string(s: String): Parser[String]
 
   implicit def regex(r: Regex): Parser[String]
@@ -84,60 +96,29 @@ trait Parsers[ParseError, Parser[+_]] {
 
   implicit def asStringParser[A](a: A)(implicit f: A => Parser[String]): ParserOps[String] = ParserOps(f(a))
 
+  def errorLocation(e: ParseError): Location
+
+  def errorMessage(e: ParseError): String
+
+  def attempt[A](p: Parser[A]): Parser[A]
+
 }
 
-trait JSON
+case class Location(input: String, offset: Int = 0) {
+  lazy val line: Int = input.slice(0, offset + 1).count(_ == '\n') + 1
+  lazy val col: Int = input.slice(0, offset + 1).lastIndexOf('\n') match {
+    case -1 => offset + 1
+    case lineStart => offset - lineStart
+  }
 
-object JSON {
-  case object JNull extends JSON
+  def toError(msg: String): ParseError =
+    ParseError(List((this, msg)))
 
-  case class JNumber(get: Double) extends JSON
-
-  case class JString(get: String) extends JSON
-
-  case class JBool(get: Boolean) extends JSON
-
-  case class JArray(get: IndexedSeq[JSON]) extends JSON
-
-  case class JObject(get: Map[String, JSON]) extends JSON
 }
 
-object Exercises {
+case class ParseError(stack: List[(Location, String)]) {
 
-  // parse a single digit, like '4', followed by that many 'a' characters
-  def contextSensitiveParser[Err, Parser[+_]](P: Parsers[Err, Parser]): Parser[String] = {
-    import P._
-    "\\d".r flatMap (d => "a".listOfN(d.toInt).slice)
-  }
-
-  // ToDo: extra combinators can be used/introduced
-  def jsonParser[Err, Parser[+_]](P: Parsers[Err, Parser]): Parser[JSON] = {
-    import P._
-    import JSON._
-
-    val spaces = char(' ').many.slice
-    // FixME: JSON string has some limitations
-    val jString = "\"\\w*\"".r.slice map JString
-    val jNull = string("null").map(_ => JNull)
-    val jBool = (string("true") | string("false")).map(s => JBool(s == "true"))
-    // FixME: naive int number
-    val jNumber = "-?\\d+".r.slice map (s => JNumber(s.toDouble))
-
-    def jValue: Parser[JSON] = (spaces ** (jString | jNumber | jBool | jArray | jObject | jNull) ** spaces).map(_._1._2)
-
-    def jArray = (char('[') ** (
-      spaces.map(_ => JArray(IndexedSeq.empty[JSON])) |
-        ((jValue ** char(',')).map(_._1).many ** jValue).map { case (l, j) => JArray((l :+ j).toIndexedSeq) }) **
-      char(']')).map(_._1._2)
-
-    def jKeyValue = (spaces ** jString ** spaces ** char(':') ** jValue).map(r => r._1._1._1._2.toString -> r._2)
-
-    def jObject = (char('{') ** (
-      spaces.map(_ => JObject(Map.empty[String, JSON])) |
-        ((jKeyValue ** char(',')).map(_._1).many ** jKeyValue).map { case (l, j) => JObject((l :+ j).toMap) }) **
-      char('}')).map(_._1._2)
-
-    jObject | jArray
-  }
+  def push(loc: Location, msg: String): ParseError =
+    copy(stack = (loc, msg) :: stack)
 
 }
